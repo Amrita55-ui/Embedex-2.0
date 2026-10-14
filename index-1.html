@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f3f6f2"><title>The Silent Leak | Live readings</title>
+  <style>
+    :root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#172322;background:#f3f6f2;--green:#146b56;--muted:#687873;--line:#dce5df;--red:#b83932}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 90% 0%,#dcebe2 0,transparent 35%),#f3f6f2}.wrap{max-width:920px;margin:auto;padding:28px 20px 45px}.top{display:flex;align-items:center;justify-content:space-between;gap:15px}.brand{display:flex;align-items:center;gap:11px}.logo{width:42px;height:42px;border-radius:14px;background:var(--green);color:white;display:grid;place-items:center;font-size:22px}.brand small{display:block;color:var(--muted);font-size:12px}.connection{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px}.dot{width:9px;height:9px;border-radius:50%;background:#bd8732}.dot.on{background:#27976b}h1{font-size:clamp(34px,7vw,56px);letter-spacing:-.055em;line-height:1.02;margin:50px 0 12px}.intro{color:#53635e;line-height:1.6;max-width:640px}.status{margin:24px 0 16px;padding:18px;border:1px solid #c7e2d1;background:#e4f1e9;border-radius:17px;display:flex;gap:13px;align-items:center}.status.bad{border-color:#f0c6bf;background:#fff0ed}.icon{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:#cde8d8;font-size:20px}.status.bad .icon{background:#f7d3cd}.status strong{display:block}.status span{display:block;margin-top:4px;font-size:13px;color:#53635e}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.card{background:white;border:1px solid var(--line);border-radius:18px;padding:20px}.label{font-size:13px;color:var(--muted)}.value{font-size:43px;font-weight:680;letter-spacing:-.055em;margin-top:16px}.unit{font-size:15px;color:var(--muted);letter-spacing:0}.small{font-size:12px;color:var(--muted);line-height:1.5;margin-top:12px}.actions{display:flex;align-items:center;gap:12px;margin-top:18px;flex-wrap:wrap}button{border:1px solid var(--line);background:white;color:#34443f;border-radius:10px;padding:9px 12px;font:inherit;cursor:pointer}button:hover{border-color:#88a999}footer{margin-top:22px;color:#7b8983;font-size:11px;line-height:1.6}.setup{padding:18px;background:#fff;border:1px solid var(--line);border-radius:17px;margin-top:16px}.setup summary{cursor:pointer;font-weight:600}.setup p{color:#53635e;font-size:13px;line-height:1.6}@media(max-width:650px){.wrap{padding:20px 14px 35px}.grid{grid-template-columns:1fr}.value{font-size:39px}h1{margin-top:38px}}
+  </style>
+</head>
+<body><main class="wrap">
+  <header class="top"><div class="brand"><div class="logo">⌂</div><div><strong>The Silent Leak</strong><small>Home safety sensor dashboard</small></div></div><div class="connection"><i class="dot" id="dot"></i><span id="conn">Setting up dashboard</span></div></header>
+  <h1>Live room readings.</h1><p class="intro">Latest readings reported by your ESP-12E. The ESP must be connected to Wi-Fi and the cloud channel must be configured below.</p>
+  <section class="status" id="status"><div class="icon" id="icon">…</div><div><strong id="title">Waiting for sensor data</strong><span id="message">Configure the channel settings in this page to begin.</span></div></section>
+  <section class="grid">
+    <article class="card"><div class="label">MQ-2 raw reading</div><div class="value"><span id="gas">—</span><span class="unit"> / 1023</span></div><div class="small">Raw analog value, not a calibrated gas concentration.</div></article>
+    <article class="card"><div class="label">DHT11 temperature</div><div class="value"><span id="temp">—</span><span class="unit"> °C</span></div><div class="small">Last reported room temperature.</div></article>
+    <article class="card"><div class="label">DHT11 humidity</div><div class="value"><span id="humidity">—</span><span class="unit"> %</span></div><div class="small">Last reported relative humidity.</div></article>
+  </section>
+  <div class="actions"><button id="notify">Enable alerts while this page is open</button><span class="small" id="updated">No data received yet.</span></div>
+  <details class="setup"><summary>Set up this Netlify page</summary><p>In the SETTINGS section below, enter your ThingSpeak Channel ID and read API key. The channel must allow public reads. Keep the channel write key only in the ESP sketch. Redeploy this folder to Netlify after changing the page.</p></details>
+  <footer>Prototype display only. Browser alerts work only while this page is open and notifications are allowed. Keep certified gas and smoke alarms installed. Do not use this prototype to operate a gas valve.</footer>
+</main>
+<script>
+// SETTINGS: Replace these two values with your ThingSpeak channel details.
+const CHANNEL_ID = "3536839";
+const READ_API_KEY = ""; // Leave blank for a public channel; otherwise enter its read key.
+// Match these values to the thresholds in the ESP sketch.
+const GAS_LIMIT = 600;
+const TEMP_LIMIT_C = 55;
+let notified = false;
+
+function setConnection(ok,text){document.getElementById('dot').classList.toggle('on',ok);document.getElementById('conn').textContent=text}
+function showAlert(on,detail){const box=document.getElementById('status');box.classList.toggle('bad',on);document.getElementById('icon').textContent=on?'!':'✓';document.getElementById('title').textContent=on?'ALERT — threshold exceeded':'No alert reported';document.getElementById('message').textContent=detail}
+async function update(){
+  if(CHANNEL_ID==="3536839"){setConnection(false,'Setup needed');showAlert(false,'Enter a ThingSpeak Channel ID in this page settings.');return}
+  try{
+    const url=`https://api.thingspeak.com/channels/${encodeURIComponent(CHANNEL_ID)}/feeds/last.json${READ_API_KEY?'?api_key='+encodeURIComponent(READ_API_KEY):''}`;
+    const response=await fetch(url,{cache:'no-store'});if(!response.ok)throw Error('Channel unavailable');const d=await response.json();
+    const gas=Number(d.field1),temp=Number(d.field2),humidity=Number(d.field3),reportedAlarm=Number(d.field4)===1;
+    if(d.field1===null||d.field2===null||!Number.isFinite(gas)||!Number.isFinite(temp)||temp===-999)throw Error('No complete sensor reading yet');
+    document.getElementById('gas').textContent=Math.round(gas);document.getElementById('temp').textContent=temp.toFixed(1);document.getElementById('humidity').textContent=Number.isFinite(humidity)?humidity.toFixed(0):'—';
+    const reportTime=new Date(d.created_at);const ageSeconds=(Date.now()-reportTime.getTime())/1000;
+    const fresh=Number.isFinite(ageSeconds)&&ageSeconds<90;
+    const alert=reportedAlarm||gas>=GAS_LIMIT||temp>=TEMP_LIMIT_C;
+    showAlert(alert||!fresh,!fresh?'No recent report; current conditions are unknown.':alert?'Gas or temperature reading is at/above its configured limit. Check safely and follow your emergency procedure.':'Latest reported readings are below the example thresholds.');
+    setConnection(fresh,fresh?'Cloud data received':'Device data is stale');
+    document.getElementById('updated').textContent='Last device report: '+reportTime.toLocaleString()+(fresh?'':' · check device/Wi-Fi');
+    if((alert||!fresh)&&!notified&&Notification.permission==='granted'){new Notification('The Silent Leak alert',{body:!fresh?'No recent device report; current readings are unknown.':`Gas raw: ${Math.round(gas)} | Temperature: ${temp.toFixed(1)} °C`});notified=true}if(!alert&&fresh)notified=false;
+  }catch(e){setConnection(false,'No recent data');showAlert(false,'Could not load a sensor report. Check the channel ID, read access, internet, and ESP upload.');document.getElementById('updated').textContent=e.message}
+}
+document.getElementById('notify').addEventListener('click',async()=>{if('Notification'in window){const p=await Notification.requestPermission();document.getElementById('notify').textContent=p==='granted'?'Browser alerts enabled':'Notifications not enabled'}else alert('This browser does not support notifications.')});
+update();setInterval(update,15000);
+</script></body></html>
